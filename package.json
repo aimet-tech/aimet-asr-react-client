@@ -1,0 +1,84 @@
+{
+  "name": "vite-component-library-template",
+  "private": false,
+  "version": "3.0.1",
+  "packageManager": "pnpm@10.12.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IgnacioNMiranda/vite-component-library-template"
+  },
+  "main": "./dist/vite-component-library-template.umd.js",
+  "module": "./dist/vite-component-library-template.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vite-component-library-template.es.js",
+      "require": "./dist/vite-component-library-template.umd.js"
+    },
+    "./styles.css": "./dist/vite-component-library-template.css"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "storybook dev -p 6006",
+    "build": "storybook build",
+    "build:lib": "tsc && vite build",
+    "lint": "npx @biomejs/biome lint --write ./src",
+    "format": "npx @biomejs/biome check --write --organize-imports-enabled=true ./src",
+    "test": "vitest",
+    "test:cov": "vitest run --coverage",
+    "prepack": "json -f package.json -I -e \"delete this.devDependencies; delete this.dependencies\""
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "7.27.4",
+    "@biomejs/biome": "2.0.4",
+    "@storybook/addon-docs": "9.0.12",
+    "@storybook/addon-links": "9.0.12",
+    "@storybook/addon-themes": "9.0.12",
+    "@storybook/react-vite": "9.0.12",
+    "@storybook/test": "8.6.14",
+    "@tailwindcss/postcss": "4.1.10",
+    "@tailwindcss/vite": "4.1.10",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "24.0.3",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "@vitejs/plugin-react": "4.5.2",
+    "@vitest/coverage-v8": "3.2.4",
+    "autoprefixer": "10.4.21",
+    "babel-loader": "10.0.0",
+    "husky": "9.1.7",
+    "jsdom": "26.1.0",
+    "json": "11.0.0",
+    "lint-staged": "16.1.2",
+    "postcss": "8.5.6",
+    "prop-types": "15.8.1",
+    "storybook": "9.0.12",
+    "tailwindcss": "4.1.10",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vite-plugin-dts": "4.5.4",
+    "vitest": "3.2.4"
+  },
+  "peerDependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "lint-staged": {
+    "*.{js,ts,cjs,mjs,d.cts,d.mts,json,jsonc}": [
+      "biome check --files-ignore-unknown=true",
+      "biome check --write --no-errors-on-unmatched",
+      "biome lint --write --no-errors-on-unmatched --files-ignore-unknown=true",
+      "biome format --write --no-errors-on-unmatched"
+    ]
+  }
+}
