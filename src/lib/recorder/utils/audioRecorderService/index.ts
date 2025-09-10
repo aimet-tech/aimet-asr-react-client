@@ -92,9 +92,6 @@ export class AudioRecorderService implements IRecorderService {
       this.recordingChunks = [];
       this.isMediaRecorderStopped = false; // Reset stop state
       this.mediaRecorder?.start(this.recordingConfig.timeSlice);
-      this.recordingStartTime = Date.now();
-      this.state.isRecording = true;
-      this.onRecordingStart?.();
     } catch (error) {
       this.state.error =
         error instanceof Error ? error.message : "Failed to start recording";
@@ -258,7 +255,6 @@ export class AudioRecorderService implements IRecorderService {
     // Create a timeout Promise that resolves after 5 seconds
     const timeoutPromise = new Promise<void>((resolve) => {
       window.setTimeout(() => {
-        // console.log("MediaRecorder stop timeout reached, proceeding anyway");
         resolve();
       }, 5000);
     });
@@ -285,6 +281,12 @@ export class AudioRecorderService implements IRecorderService {
       mimeType,
       audioBitsPerSecond: this.recordingConfig.audioBitsPerSecond,
     });
+
+    this.mediaRecorder.onstart = () => {
+      this.recordingStartTime = Date.now();
+      this.state.isRecording = true;
+      this.onRecordingStart?.();
+    };
 
     this.mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {

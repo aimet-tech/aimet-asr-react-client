@@ -28,79 +28,14 @@ export const TranscribeProvider: FC<TranscribeProviderProps> = memo(
     });
 
     // Context values
-    // const stateValue = useMemo(
-    //   () => ({
-    //     transcribeService: transcribeResult.serviceRef.current,
-    //     serviceInitialized: transcribeResult.serviceInitialized,
-    //   }),
-    //   [transcribeResult]
-    // );
-
-    // const actionValue = useMemo(
-    //   () => ({
-    //     // Callback setters
-    //     addTranscribeListener:
-    //       transcribeResult.serviceRef.current?.addTranscribeListener ??
-    //       (() =>
-    //         console.log(
-    //           "transcribeService not initialized yet, addListener failed"
-    //         )),
-    //     removeTranscribeListener:
-    //       transcribeResult.serviceRef.current?.removeTranscribeListener ??
-    //       (() =>
-    //         console.log(
-    //           "transcribeService not initialized yet, removeListener failed"
-    //         )),
-
-    //     // Action functions
-    //     startTranscribing: transcribeResult.startTranscribing,
-    //     stopTranscribing: transcribeResult.stopTranscribing,
-    //     stopTranscribeKeepSocket: transcribeResult.stopTranscribeKeepSocket,
-    //     resumeTranscribe: transcribeResult.resumeTranscribe,
-    //     requestPermission: transcribeResult.requestPermission,
-    //   }),
-    //   [transcribeResult]
-    // );
     const stateValue = {
       transcribeService: transcribeResult.serviceRef,
       serviceInitialized: transcribeResult.serviceInitialized,
     };
 
     const actionValue = {
-      // Callback setters
-      // addTranscribeListener: <T extends TranscribeListener>(
-      //   type: T,
-      //   callback: TranscribeListenerCallbackMap[T]
-      // ) =>
-      //   transcribeResult.serviceRef.current?.addTranscribeListener(
-      //     type,
-      //     callback
-      //   ),
-
-      // removeTranscribeListener: <T extends TranscribeListener>(
-      //   type: T,
-      //   callback: TranscribeListenerCallbackMap[T]
-      // ) =>
-      //   transcribeResult.serviceRef.current?.removeTranscribeListener(
-      //     type,
-      //     callback
-      //   ),
-
       addTranscribeListener: transcribeResult.addTranscribeListener,
       removeTranscribeListener: transcribeResult.removeTranscribeListener,
-
-      // addTranscribeListener:
-      //   transcribeResult.serviceRef.current?.addTranscribeListener ??
-      //   (() =>
-      //     console.log(
-      //       "transcribeService not initialized yet, addListener failed"
-      //     )),
-      // removeTranscribeListener:
-      //   transcribeResult.serviceRef.current?.removeTranscribeListener ??
-      //   (() =>
-      //     console.log(
-      //       "transcribeService not initialized yet, removeListener failed"
-      //     )),
 
       // Action functions
       startTranscribing: transcribeResult.startTranscribing,

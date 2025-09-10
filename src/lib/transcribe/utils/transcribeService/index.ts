@@ -173,11 +173,7 @@ export class TranscribeService {
     // Check if socket is still connected, reconnect if needed
     if (!this.socketService.isConnected()) {
       console.log("Socket not connected, attempting to reconnect...");
-      // console.log("currentConnectionParams", this.currentConnectionParams);
-      // console.log("fallbackConnectionParams", fallbackConnectionParams);
       if (this.currentConnectionParams || fallbackConnectionParams) {
-        // const wsUrl = buildWebSocketUrl(this.currentConnectionParams);
-        // await this.socketService.connect(wsUrl);
         const params = this.currentConnectionParams || fallbackConnectionParams;
         if (params) await this.startTranscribing(params);
       }
@@ -227,7 +223,7 @@ export class TranscribeService {
   private handleTranscriptionResponse(response: TranscribeResponse): void {
     switch (response.type) {
       case TranscribeResponseType.SPEECH:
-        console.log("🗣️ Speech response detected", this.listeners.onSpeech);
+        console.log("🗣️ Speech response detected");
         executeCallbacks(
           this.listeners.onSpeech,
           response as GcpSpeechResponse
