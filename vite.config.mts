@@ -1,10 +1,10 @@
-import path from 'node:path'
-import tailwindcss from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react'
-import type { UserConfigExport } from 'vite'
-import dts from 'vite-plugin-dts'
-import { configDefaults, defineConfig } from 'vitest/config'
-import { name } from './package.json'
+import path from "node:path";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import type { UserConfigExport } from "vite";
+import dts from "vite-plugin-dts";
+import { configDefaults, defineConfig } from "vitest/config";
+import { name } from "./package.json";
 
 const app = async (): Promise<UserConfigExport> => {
   /**
@@ -12,7 +12,7 @@ const app = async (): Promise<UserConfigExport> => {
    * @octocat/library-repo -> library-repo
    * vite-component-library-template -> vite-component-library-template
    */
-  const formattedName = name.match(/[^/]+$/)?.[0] ?? name
+  const formattedName = name.match(/[^/]+$/)?.[0] ?? name;
 
   return defineConfig({
     plugins: [
@@ -22,38 +22,42 @@ const app = async (): Promise<UserConfigExport> => {
       }),
       tailwindcss(),
     ],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src/lib"),
+      },
+    },
     build: {
       lib: {
-        entry: path.resolve(__dirname, 'src/lib/index.ts'),
+        entry: path.resolve(__dirname, "src/lib/index.ts"),
         name: formattedName,
-        formats: ['es', 'umd'],
-        fileName: format => `${formattedName}.${format}.js`,
+        formats: ["es", "umd"],
+        fileName: (format) => `${formattedName}.${format}.js`,
       },
       rollupOptions: {
-        external: ['react', 'react/jsx-runtime', 'react-dom', 'tailwindcss'],
+        external: ["react", "react/jsx-runtime", "react-dom", "tailwindcss"],
         output: {
           globals: {
-            react: 'React',
-            'react/jsx-runtime': 'react/jsx-runtime',
-            'react-dom': 'ReactDOM',
-            tailwindcss: 'tailwindcss',
+            react: "React",
+            "react/jsx-runtime": "react/jsx-runtime",
+            "react-dom": "ReactDOM",
+            tailwindcss: "tailwindcss",
           },
         },
       },
     },
     test: {
       globals: true,
-      environment: 'jsdom',
+      environment: "jsdom",
       coverage: {
         exclude: [
           ...(configDefaults.coverage.exclude ?? []),
-          '**/storybook-static/*',
-          '**/*.stories.tsx',
-          '**/*.config.js',
+          "**/*.stories.tsx",
+          "**/*.config.js",
         ],
       },
     },
-  })
-}
+  });
+};
 // https://vitejs.dev/config/
-export default app
+export default app;

@@ -1,2 +1,4 @@
-import './tailwind/theme.css'
-export * from './components'
+// Main library exports
+export * from "./recorder";
+export * from "./socket";
+export * from "./transcribe";
