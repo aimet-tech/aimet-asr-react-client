@@ -18,9 +18,6 @@
       "require": "./dist/aimet-asr-react-client.umd.js"
     }
   },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
   "scripts": {
     "dev": "storybook dev -p 6006",
     "build": "tsc && vite build",
