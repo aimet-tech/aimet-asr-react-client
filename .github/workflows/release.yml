@@ -23,6 +23,9 @@ jobs:
         with:
           node-version: 22
       - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: true
       - run: pnpm lint
 
   test:
@@ -33,6 +36,9 @@ jobs:
         with:
           node-version: 22
       - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: true
       - run: pnpm test:cov
 
   release:
