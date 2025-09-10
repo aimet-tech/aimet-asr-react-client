@@ -24,7 +24,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
           run_install: true
       - run: pnpm lint
 
@@ -37,7 +37,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
           run_install: true
       - run: pnpm test:cov
 
@@ -53,10 +53,9 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
           run_install: true
       - run: pnpm build
-      - run: pnpm test
       - name: Semantic Release
         uses: cycjimmy/semantic-release-action@v4
         env:
