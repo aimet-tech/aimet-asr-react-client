@@ -86,6 +86,7 @@ export class AudioRecorderService implements IRecorderService {
   }
 
   async startRecording(): Promise<void> {
+    console.log("%c start recording", "color: green");
     try {
       await this.openMic();
       await this.initializeMediaRecorder();
@@ -107,7 +108,7 @@ export class AudioRecorderService implements IRecorderService {
       return null;
     }
 
-    console.log("stopping recording");
+    console.log("%c stopping recording", "color: red");
 
     // Stop the MediaRecorder
     this.mediaRecorder.stop();

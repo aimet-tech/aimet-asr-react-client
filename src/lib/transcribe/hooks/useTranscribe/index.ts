@@ -4,12 +4,14 @@ import type {
   TranscribeListener,
   TranscribeListenerCallbackMap,
   TranscribeConnectionParams,
+  AudioFile,
 } from "@/transcribe/types";
 import { TranscribeService } from "@/transcribe/utils/transcribeService";
 
 export const useTranscribe = (options: UseTranscribeOptions) => {
   const serviceRef = useRef<TranscribeService | null>(null);
   const [serviceInitialized, setServiceInitialized] = useState(false);
+  const latestAudioFileRef = useRef<AudioFile | null>(null);
 
   // Initialize service with enhanced callbacks that update React state
   useEffect(() => {
@@ -24,8 +26,16 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
     return () => {
       if (serviceRef.current) {
-        console.log("useTranscribe stopTranscribing");
-        serviceRef.current.stopTranscribing().catch(console.error);
+        console.log("%c Clean up: stopTranscribing", "color: orange");
+        serviceRef.current
+          .stopTranscribing()
+          .then((audioFile) => {
+            // Save the audio file from cleanup if we got one
+            if (audioFile) {
+              latestAudioFileRef.current = audioFile;
+            }
+          })
+          .catch(console.error);
         serviceRef.current = null;
       }
     };
@@ -53,19 +63,37 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
   const stopTranscribing = useCallback(async () => {
     try {
-      return (await serviceRef.current?.stopTranscribing()) ?? null;
+      const audioFile = (await serviceRef.current?.stopTranscribing()) ?? null;
+
+      // Save the latest audio file if we got one
+      if (audioFile) {
+        latestAudioFileRef.current = audioFile;
+      }
+
+      // If stopTranscribing returns null, return the last saved audio file
+      return audioFile ?? latestAudioFileRef.current;
     } catch (error) {
       console.error("Failed to stop transcribing:", error);
-      return null;
+      return latestAudioFileRef.current;
     }
   }, []);
 
   const stopTranscribeKeepSocket = useCallback(async () => {
     try {
-      return (await serviceRef.current?.stopTranscribeKeepSocket()) ?? null;
+      const audioFile =
+        (await serviceRef.current?.stopTranscribeKeepSocket()) ?? null;
+
+      // Save the latest audio file if we got one
+      if (audioFile) {
+        latestAudioFileRef.current = audioFile;
+      }
+
+      // If stopTranscribeKeepSocket returns null, return the last saved audio file
+      return audioFile ?? latestAudioFileRef.current;
     } catch (error) {
       console.error("Failed to pause mic and stop recording:", error);
-      throw error;
+      // Return last saved audio file even on error
+      return latestAudioFileRef.current;
     }
   }, []);
 

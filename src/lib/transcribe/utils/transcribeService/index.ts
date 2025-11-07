@@ -101,6 +101,7 @@ export class TranscribeService {
   }
   // Main public methods
   async startTranscribing(params: TranscribeConnectionParams): Promise<void> {
+    console.log("%c startTranscribing", "color: green");
     document.dispatchEvent(new CustomEvent("onRecordingStart"));
 
     // Store connection params for potential reconnection
@@ -122,13 +123,13 @@ export class TranscribeService {
   }
 
   async stopTranscribing(): Promise<AudioFile | null> {
+    console.log("%c stopTranscribing", "color: red");
     // 1. Stop mic streaming
     await this.recorderService.stopMicStream();
 
     // 2. Stop recording and get final file
     let audioFile = null;
     if (this.enableRecording) {
-      console.log("stop recording enableRecording");
       audioFile = await this.recorderService.stopRecording();
     }
 

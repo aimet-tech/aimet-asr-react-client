@@ -9,6 +9,7 @@ export const useRecorder = (): UseRecorderReturn => {
   const [error, setError] = useState<string | null>(null);
 
   const recorderServiceRef = useRef<AudioRecorderService | null>(null);
+  const latestAudioFileRef = useRef<AudioFile | null>(null);
 
   // Initialize AudioRecorderService
   useEffect(() => {
@@ -37,7 +38,25 @@ export const useRecorder = (): UseRecorderReturn => {
     // Cleanup function
     return () => {
       if (recorderServiceRef.current) {
-        recorderServiceRef.current.closeMic();
+        console.log("%c Clean up: stop recording & close mic", "color: orange");
+        // Check if currently recording, if so stop recording first
+        const state = recorderServiceRef.current.getState();
+        if (state.isRecording) {
+          recorderServiceRef.current
+            .stopRecording()
+            .then((audioFile) => {
+              // Save the audio file from cleanup if we got one
+              if (audioFile) {
+                latestAudioFileRef.current = audioFile;
+              }
+            })
+            .catch(console.error)
+            .finally(() => {
+              recorderServiceRef.current?.closeMic();
+            });
+        } else {
+          recorderServiceRef.current.closeMic();
+        }
       }
     };
   }, []);
@@ -95,13 +114,22 @@ export const useRecorder = (): UseRecorderReturn => {
     try {
       setError(null);
       const audioFile = await recorderServiceRef.current?.stopRecording();
+
+      // Save the latest audio file if we got one
+      if (audioFile) {
+        latestAudioFileRef.current = audioFile;
+      }
+
       recorderServiceRef.current?.closeMic();
-      return audioFile || null;
+
+      // If stopRecording returns null, return the last saved audio file
+      return audioFile ?? latestAudioFileRef.current;
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Failed to stop recording"
       );
-      throw error;
+      // Return last saved audio file even on error
+      return latestAudioFileRef.current;
     }
   };
 
