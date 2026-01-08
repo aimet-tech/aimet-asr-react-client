@@ -5,7 +5,6 @@ export interface UseRecorderReturn {
   // State
   isRecording: boolean;
   hasPermission: boolean;
-  error: string | null;
 
   // Ref for MediaStream access
   recorderServiceRef: React.RefObject<AudioRecorderService | null>;

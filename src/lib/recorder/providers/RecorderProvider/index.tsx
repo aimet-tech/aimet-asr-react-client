@@ -15,7 +15,6 @@ export const RecorderProvider: React.FC<RecorderProviderProps> = ({
     // State from hook
     isRecording: recorderHook.isRecording,
     hasPermission: recorderHook.hasPermission,
-    error: recorderHook.error,
 
     // Ref to service for MediaStream access
     recorderServiceRef: recorderHook.recorderServiceRef,

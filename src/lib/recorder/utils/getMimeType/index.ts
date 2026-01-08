@@ -1,9 +1,16 @@
+import { MediaRecorderNotSupportedError } from "@/recorder/errors";
+
 /**
  * Get the best supported MIME type for audio recording
  * @param preferredMimeType - Optional preferred MIME type
  * @returns Supported MIME type string
  */
 export function getMimeType(preferredMimeType?: string): string {
+  // Check if MediaRecorder is supported at all
+  if (typeof MediaRecorder === "undefined" || !MediaRecorder.isTypeSupported) {
+    throw new MediaRecorderNotSupportedError();
+  }
+
   // If a preferred MIME type is provided and supported, use it
   if (preferredMimeType && MediaRecorder.isTypeSupported(preferredMimeType)) {
     return preferredMimeType;
@@ -23,5 +30,7 @@ export function getMimeType(preferredMimeType?: string): string {
     }
   }
 
-  throw new Error("No supported audio MIME type found");
+  throw new MediaRecorderNotSupportedError(
+    "No supported audio MIME type found"
+  );
 }

@@ -1,3 +1,6 @@
+// Error classes
+export * from "./errors";
+
 // Main hook
 export * from "./hooks";
 

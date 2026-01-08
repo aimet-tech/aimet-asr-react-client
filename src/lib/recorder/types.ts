@@ -10,7 +10,6 @@ export interface RecorderState {
   isRecording: boolean;
   isMicActive: boolean;
   hasPermission: boolean;
-  error: string | null;
   currentAudioFile: AudioFile | null;
 }
 

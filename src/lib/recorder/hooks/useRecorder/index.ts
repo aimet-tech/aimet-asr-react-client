@@ -6,7 +6,6 @@ import { UseRecorderReturn } from "@/recorder/hooks/useRecorder/types";
 export const useRecorder = (): UseRecorderReturn => {
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const recorderServiceRef = useRef<AudioRecorderService | null>(null);
   const latestAudioFileRef = useRef<AudioFile | null>(null);
@@ -16,22 +15,12 @@ export const useRecorder = (): UseRecorderReturn => {
     recorderServiceRef.current = new AudioRecorderService({
       onRecordingStart: () => {
         setIsRecording(true);
-        setError(null);
       },
       onRecordingStop: () => {
         setIsRecording(false);
       },
       onPermissionGranted: () => {
         setHasPermission(true);
-        setError(null);
-      },
-      onPermissionDenied: () => {
-        setHasPermission(false);
-        setError("Microphone permission denied");
-      },
-      onError: (error) => {
-        setError(error.message);
-        setIsRecording(false);
       },
     });
 
@@ -62,86 +51,42 @@ export const useRecorder = (): UseRecorderReturn => {
   }, []);
 
   const requestPermission = async (): Promise<void> => {
-    try {
-      setError(null);
-      await recorderServiceRef.current?.requestPermission();
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to request permission"
-      );
-      throw error;
-    }
+    await recorderServiceRef.current?.requestPermission();
   };
 
   const openMic = async (): Promise<void> => {
-    try {
-      setError(null);
-      await recorderServiceRef.current?.openMic();
-      setIsRecording(true);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to open microphone"
-      );
-      throw error;
-    }
+    await recorderServiceRef.current?.openMic();
   };
 
   const closeMic = (): void => {
-    try {
-      setError(null);
-      recorderServiceRef.current?.closeMic();
-      setIsRecording(false);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to close microphone"
-      );
-    }
+    recorderServiceRef.current?.closeMic();
   };
 
   const startRecord = async (): Promise<void> => {
-    try {
-      setError(null);
-      await recorderServiceRef.current?.startRecording();
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to start recording"
-      );
-      throw error;
-    }
+    await recorderServiceRef.current?.startRecording();
   };
 
   const stopRecord = async (): Promise<AudioFile | null> => {
-    try {
-      setError(null);
-      const audioFile = await recorderServiceRef.current?.stopRecording();
+    const audioFile = await recorderServiceRef.current?.stopRecording();
 
-      // Save the latest audio file if we got one
-      if (audioFile) {
-        latestAudioFileRef.current = audioFile;
-      }
-
-      recorderServiceRef.current?.closeMic();
-
-      // If stopRecording returns null, return the last saved audio file
-      return audioFile ?? latestAudioFileRef.current;
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to stop recording"
-      );
-      // Return last saved audio file even on error
-      return latestAudioFileRef.current;
+    // Save the latest audio file if we got one
+    if (audioFile) {
+      latestAudioFileRef.current = audioFile;
     }
+
+    recorderServiceRef.current?.closeMic();
+
+    // If stopRecording returns null, return the last saved audio file
+    return audioFile ?? latestAudioFileRef.current;
   };
 
   const reset = (): void => {
-    setError(null);
     setIsRecording(false);
   };
 
   return {
     isRecording,
     hasPermission,
-    error,
     recorderServiceRef,
     startRecord,
     stopRecord,

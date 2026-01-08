@@ -6,7 +6,6 @@ export const RecorderContext = createContext<RecorderContextValue>({
   // Default state values
   isRecording: false,
   hasPermission: false,
-  error: null,
 
   // Default ref
   recorderServiceRef: { current: null },
