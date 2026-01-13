@@ -24,9 +24,11 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
     setServiceInitialized(true);
 
+    console.log("%c [useTranscribe] Service initialized", "color: purple");
+
     return () => {
       if (serviceRef.current) {
-        console.log("%c Clean up: stopTranscribing", "color: orange");
+        console.log("%c [useTranscribe] Cleaning up service", "color: purple");
         serviceRef.current
           .stopTranscribing()
           .then((audioFile) => {
@@ -50,72 +52,45 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
   const startTranscribing = useCallback(
     async (params: TranscribeConnectionParams) => {
-      console.log(serviceRef.current?.listeners);
-      try {
-        await serviceRef.current?.startTranscribing(params);
-      } catch (error) {
-        console.error("Failed to start transcribing:", error);
-        throw error;
-      }
+      await serviceRef.current?.startTranscribing(params);
     },
     []
   );
 
   const stopTranscribing = useCallback(async () => {
-    try {
-      const audioFile = (await serviceRef.current?.stopTranscribing()) ?? null;
+    const audioFile = (await serviceRef.current?.stopTranscribing()) ?? null;
 
-      // Save the latest audio file if we got one
-      if (audioFile) {
-        latestAudioFileRef.current = audioFile;
-      }
-
-      // If stopTranscribing returns null, return the last saved audio file
-      return audioFile ?? latestAudioFileRef.current;
-    } catch (error) {
-      console.error("Failed to stop transcribing:", error);
-      return latestAudioFileRef.current;
+    // Save the latest audio file if we got one
+    if (audioFile) {
+      latestAudioFileRef.current = audioFile;
     }
+
+    // If stopTranscribing returns null, return the last saved audio file
+    return audioFile ?? latestAudioFileRef.current;
   }, []);
 
   const stopTranscribeKeepSocket = useCallback(async () => {
-    try {
-      const audioFile =
-        (await serviceRef.current?.stopTranscribeKeepSocket()) ?? null;
+    const audioFile =
+      (await serviceRef.current?.stopTranscribeKeepSocket()) ?? null;
 
-      // Save the latest audio file if we got one
-      if (audioFile) {
-        latestAudioFileRef.current = audioFile;
-      }
-
-      // If stopTranscribeKeepSocket returns null, return the last saved audio file
-      return audioFile ?? latestAudioFileRef.current;
-    } catch (error) {
-      console.error("Failed to pause mic and stop recording:", error);
-      // Return last saved audio file even on error
-      return latestAudioFileRef.current;
+    // Save the latest audio file if we got one
+    if (audioFile) {
+      latestAudioFileRef.current = audioFile;
     }
+
+    // If stopTranscribeKeepSocket returns null, return the last saved audio file
+    return audioFile ?? latestAudioFileRef.current;
   }, []);
 
   const resumeTranscribe = useCallback(
     async (fallbackConnectionParams?: TranscribeConnectionParams) => {
-      try {
-        await serviceRef.current?.resumeTranscribe(fallbackConnectionParams);
-      } catch (error) {
-        console.error("Failed to resume mic:", error);
-        throw error;
-      }
+      await serviceRef.current?.resumeTranscribe(fallbackConnectionParams);
     },
     []
   );
 
   const requestPermission = useCallback(async () => {
-    try {
-      await serviceRef.current?.requestPermission();
-    } catch (error) {
-      console.error("Failed to request permission:", error);
-      throw error;
-    }
+    await serviceRef.current?.requestPermission();
   }, []);
 
   const addTranscribeListener = useCallback(

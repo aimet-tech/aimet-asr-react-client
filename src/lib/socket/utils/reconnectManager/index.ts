@@ -3,19 +3,25 @@ import type { SocketConfig, IReconnectManager } from "@/socket/types";
 export class ReconnectManager implements IReconnectManager {
   private config: SocketConfig;
   private onReconnect: () => Promise<void>;
+  private onReconnectFailed?: () => void;
   private _isReconnecting = false;
   private attemptCount = 0;
   private reconnectTimeout: NodeJS.Timeout | null = null;
 
-  constructor(config: SocketConfig, onReconnect: () => Promise<void>) {
+  constructor(
+    config: SocketConfig,
+    onReconnect: () => Promise<void>,
+    onReconnectFailed?: () => void
+  ) {
     this.config = config;
     this.onReconnect = onReconnect;
+    this.onReconnectFailed = onReconnectFailed;
   }
 
   startReconnection(): void {
     if (this._isReconnecting) return;
 
-    console.log("startReconnection");
+    console.log("%c [ReconnectManager] Starting reconnection", "color: orange");
 
     this._isReconnecting = true;
     this.attemptCount = 0;
@@ -23,7 +29,7 @@ export class ReconnectManager implements IReconnectManager {
   }
 
   stopReconnection(): void {
-    console.log("stopReconnection");
+    console.log("%c [ReconnectManager] Stopping reconnection", "color: orange");
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -37,7 +43,10 @@ export class ReconnectManager implements IReconnectManager {
   }
 
   resetAttemptCount(): void {
-    console.log("resetAttemptCount");
+    console.log(
+      "%c [ReconnectManager] Resetting attempt count",
+      "color: orange"
+    );
     this.attemptCount = 0;
   }
 
@@ -48,10 +57,16 @@ export class ReconnectManager implements IReconnectManager {
   private scheduleNextAttempt(): void {
     if (!this._isReconnecting) return;
 
-    console.log("scheduleNextAttempt", this.attemptCount);
+    console.log(
+      "%c [ReconnectManager] Scheduling next attempt",
+      "color: orange",
+      this.attemptCount
+    );
 
     if (this.attemptCount >= this.config.reconnectAttempts) {
       this.stopReconnection();
+      // Notify that reconnection has failed after all attempts
+      this.onReconnectFailed?.();
       return;
     }
 

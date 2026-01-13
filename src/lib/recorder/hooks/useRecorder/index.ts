@@ -24,10 +24,12 @@ export const useRecorder = (): UseRecorderReturn => {
       },
     });
 
+    console.log("%c [useRecorder] Service initialized", "color: aqua");
+
     // Cleanup function
     return () => {
       if (recorderServiceRef.current) {
-        console.log("%c Clean up: stop recording & close mic", "color: orange");
+        console.log("%c [useRecorder] Cleaning up service", "color: aqua");
         // Check if currently recording, if so stop recording first
         const state = recorderServiceRef.current.getState();
         if (state.isRecording) {

@@ -19,7 +19,6 @@
     }
   },
   "scripts": {
-    "dev": "storybook dev -p 6006",
     "build": "tsc && vite build",
     "lint": "npx @biomejs/biome lint --write ./src",
     "format": "npx @biomejs/biome check --write --organize-imports-enabled=true ./src",

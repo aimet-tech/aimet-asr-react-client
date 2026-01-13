@@ -1,3 +1,13 @@
+import type {
+  SocketDisconnectedError,
+  SocketMessageParseError,
+  SocketSendError,
+  SocketBufferOverflowError,
+  SocketNotConnectedError,
+  SocketReconnectionFailedError,
+} from "@/socket/errors";
+import type { TranscribeServerError } from "@/transcribe/errors";
+
 // Base response type matching your Dart structure
 export interface TranscribeResponse {
   type: TranscribeResponseType;
@@ -77,7 +87,6 @@ export enum ConnectionStatus {
 // Enhanced connection status with additional info
 export interface TranscribeConnection {
   status: ConnectionStatus;
-  error?: string;
   reconnectAttempt?: number;
 }
 
@@ -112,8 +121,19 @@ export type TranscribeListener = keyof TranscribeListenerCallbackMap;
 // Type mapping for callback signatures
 export type TranscribeListenerCallbackMap = {
   onSpeech: (res: GcpSpeechResponse) => void;
-  onError: (res: ErrorResponse) => void;
+  onError: (
+    error:
+      | SocketDisconnectedError
+      | SocketMessageParseError
+      | SocketSendError
+      | SocketBufferOverflowError
+      | SocketNotConnectedError
+      | SocketReconnectionFailedError
+      | TranscribeServerError
+  ) => void;
   onVAD: (res: VadResponse) => void;
+  onConnect: () => void;
+  onDisconnect: (event: CloseEvent) => void;
   onConnectionStatusChange: (res: TranscribeConnection) => void;
   onRecordingStart: () => void;
   onRecordingStop: (res: AudioFile) => void;

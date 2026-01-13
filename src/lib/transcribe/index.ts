@@ -10,6 +10,9 @@ export * from "./providers";
 // types
 export * from "./types";
 
+// errors
+export * from "./errors";
+
 // keys
 export * from "./keys";
 
