@@ -17,6 +17,7 @@ const defaultActions: TranscribeActions = {
   // Default action functions (no-op)
   startTranscribing: async () => {
     console.error("startTranscribing must be used within TranscribeProvider");
+    return "";
   },
   stopTranscribing: async () => {
     console.error("stopTranscribing must be used within TranscribeProvider");

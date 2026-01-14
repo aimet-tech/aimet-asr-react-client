@@ -104,6 +104,7 @@ export interface TranscribeActions {
    * sent to the server for transcription.
    *
    * **Possible Errors (thrown):**
+   * - `TranscribeServiceNotInitializedError` - Service not initialized (missing TranscribeProvider)
    * - `SocketConnectionError` - Failed to connect to WebSocket server
    * - `SocketConnectionTimeoutError` - Connection timeout (>10s)
    * - `SocketNotInitializedError` - Socket failed to initialize
@@ -114,26 +115,31 @@ export interface TranscribeActions {
    * - `MediaRecorderNotSupportedError` - MediaRecorder not supported
    *
    * @param params - Connection parameters including server URL, access token, and metadata
+   * @returns The generated transcription_id for this session
+   * @throws {TranscribeServiceNotInitializedError} Service not initialized
    * @throws {SocketError} Socket connection errors
    * @throws {RecorderError} Microphone or recording errors
    *
    * @example
    * ```typescript
    * try {
-   *   await startTranscribing({
+   *   const transcriptionId = await startTranscribing({
    *     base_url: 'wss://example.com',
    *     access_token: 'token',
    *     caller_service: 'my-app',
    *     caller_ref_id: 'session-123'
    *   });
+   *   console.log('Started transcription:', transcriptionId);
    * } catch (error) {
    *   if (error instanceof MicrophonePermissionDeniedError) {
    *     alert('Please allow microphone access');
+   *   } else if (error instanceof TranscribeServiceNotInitializedError) {
+   *     console.error('Component not wrapped in TranscribeProvider');
    *   }
    * }
    * ```
    */
-  startTranscribing: (params: TranscribeConnectionParams) => Promise<void>;
+  startTranscribing: (params: TranscribeConnectionParams) => Promise<string>;
 
   /**
    * Stop transcribing and disconnect from the server.
@@ -142,12 +148,14 @@ export interface TranscribeActions {
    * the WebSocket server. Cleans up all resources including microphone access.
    *
    * **Possible Errors (thrown):**
+   * - `TranscribeServiceNotInitializedError` - Service not initialized (missing TranscribeProvider)
    * - `MicStreamStopError` - Failed to stop microphone stream
    * - `RecordingStopError` - Failed to stop recording
    * - `NoRecordingChunksError` - No audio data was recorded
    * - `MediaRecorderTimeoutError` - MediaRecorder stop operation timed out
    *
    * @returns The recorded audio file if recording was enabled, null otherwise
+   * @throws {TranscribeServiceNotInitializedError} Service not initialized
    * @throws {RecorderError} Microphone or recording errors during shutdown
    *
    * @example
@@ -168,12 +176,14 @@ export interface TranscribeActions {
    * will not attempt automatic reconnection while in this state.
    *
    * **Possible Errors (thrown):**
+   * - `TranscribeServiceNotInitializedError` - Service not initialized (missing TranscribeProvider)
    * - `MicStreamStopError` - Failed to stop microphone stream
    * - `RecordingStopError` - Failed to stop recording
    * - `NoRecordingChunksError` - No audio data was recorded
    * - `MediaRecorderTimeoutError` - MediaRecorder stop operation timed out
    *
    * @returns The recorded audio file if recording was enabled, null otherwise
+   * @throws {TranscribeServiceNotInitializedError} Service not initialized
    * @throws {RecorderError} Microphone or recording errors during pause
    *
    * @example
@@ -197,6 +207,7 @@ export interface TranscribeActions {
    * using stored or provided connection parameters.
    *
    * **Possible Errors (thrown):**
+   * - `TranscribeServiceNotInitializedError` - Service not initialized (missing TranscribeProvider)
    * - `SocketConnectionError` - Failed to reconnect if socket was disconnected
    * - `RecordingStartError` - Failed to start audio recording
    * - `MicStreamStartError` - Failed to start microphone stream
@@ -204,6 +215,7 @@ export interface TranscribeActions {
    * - `MicrophonePermissionDeniedError` - User denied microphone permission
    *
    * @param fallbackConnectionParams - Optional connection parameters if stored params are unavailable
+   * @throws {TranscribeServiceNotInitializedError} Service not initialized
    * @throws {SocketError} Socket connection errors during reconnection
    * @throws {RecorderError} Microphone or recording errors during resume
    *
@@ -232,10 +244,12 @@ export interface TranscribeActions {
    * called before startTranscribing() if the user hasn't granted permission yet.
    *
    * **Possible Errors (thrown):**
+   * - `TranscribeServiceNotInitializedError` - Service not initialized (missing TranscribeProvider)
    * - `MicrophonePermissionDeniedError` - User denied microphone permission
    * - `MicrophoneAccessError` - Microphone cannot be accessed
    * - `MediaRecorderNotSupportedError` - MediaRecorder not supported in browser
    *
+   * @throws {TranscribeServiceNotInitializedError} Service not initialized
    * @throws {RecorderError} Permission or access errors
    *
    * @example

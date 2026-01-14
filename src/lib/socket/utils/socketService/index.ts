@@ -129,11 +129,12 @@ export class SocketService implements ISocketService {
    * - `SocketNotInitializedError` - Socket failed to initialize
    *
    * @param url - The WebSocket server URL to connect to
+   * @returns The generated transcription_id for this connection
    * @throws {SocketConnectionError}
    * @throws {SocketConnectionTimeoutError}
    * @throws {SocketNotInitializedError}
    */
-  async connect(url: URL): Promise<void> {
+  async connect(url: URL): Promise<string> {
     try {
       this.allowSocketClose = false;
 
@@ -141,13 +142,16 @@ export class SocketService implements ISocketService {
 
       // Store the URL for reconnection
       this.url = new URL(url);
-      this.url.searchParams.set("transcription_id", generateTranscriptionId());
+      const transcriptionId = generateTranscriptionId();
+      this.url.searchParams.set("transcription_id", transcriptionId);
 
       // Create WebSocket connection with the exact URL (all params already included)
       this.socket = new WebSocket(this.url);
 
       this.setupEventHandlers();
       await this.waitForConnection();
+
+      return transcriptionId;
     } catch (error) {
       this.updateConnectionStatus(ConnectionStatus.ERROR);
 

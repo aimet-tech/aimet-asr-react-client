@@ -7,6 +7,7 @@ import type {
   AudioFile,
 } from "@/transcribe/types";
 import { TranscribeService } from "@/transcribe/utils/transcribeService";
+import { TranscribeServiceNotInitializedError } from "@/transcribe/errors";
 
 export const useTranscribe = (options: UseTranscribeOptions) => {
   const serviceRef = useRef<TranscribeService | null>(null);
@@ -52,7 +53,10 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
   const startTranscribing = useCallback(
     async (params: TranscribeConnectionParams) => {
-      await serviceRef.current?.startTranscribing(params);
+      if (!serviceRef.current) {
+        throw new TranscribeServiceNotInitializedError();
+      }
+      return await serviceRef.current.startTranscribing(params);
     },
     []
   );
@@ -70,8 +74,10 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
   }, []);
 
   const stopTranscribeKeepSocket = useCallback(async () => {
-    const audioFile =
-      (await serviceRef.current?.stopTranscribeKeepSocket()) ?? null;
+    if (!serviceRef.current) {
+      throw new TranscribeServiceNotInitializedError();
+    }
+    const audioFile = await serviceRef.current.stopTranscribeKeepSocket();
 
     // Save the latest audio file if we got one
     if (audioFile) {
@@ -84,20 +90,31 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
   const resumeTranscribe = useCallback(
     async (fallbackConnectionParams?: TranscribeConnectionParams) => {
-      await serviceRef.current?.resumeTranscribe(fallbackConnectionParams);
+      if (!serviceRef.current) {
+        throw new TranscribeServiceNotInitializedError();
+      }
+      await serviceRef.current.resumeTranscribe(fallbackConnectionParams);
     },
     []
   );
 
   const requestPermission = useCallback(async () => {
-    await serviceRef.current?.requestPermission();
+    if (!serviceRef.current) {
+      throw new TranscribeServiceNotInitializedError();
+    }
+    await serviceRef.current.requestPermission();
   }, []);
 
   const addTranscribeListener = useCallback(
     <T extends TranscribeListener>(
       type: T,
       callback: TranscribeListenerCallbackMap[T]
-    ) => serviceRef.current?.addTranscribeListener(type, callback),
+    ) => {
+      if (!serviceRef.current) {
+        throw new TranscribeServiceNotInitializedError();
+      }
+      serviceRef.current.addTranscribeListener(type, callback);
+    },
     []
   );
 
@@ -105,7 +122,12 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
     <T extends TranscribeListener>(
       type: T,
       callback: TranscribeListenerCallbackMap[T]
-    ) => serviceRef.current?.removeTranscribeListener(type, callback),
+    ) => {
+      if (!serviceRef.current) {
+        throw new TranscribeServiceNotInitializedError();
+      }
+      serviceRef.current.removeTranscribeListener(type, callback);
+    },
     []
   );
 

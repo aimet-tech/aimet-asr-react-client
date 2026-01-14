@@ -11,6 +11,7 @@ import {
   type TranscribeListenerCallbackMap,
   type TranscribeListener,
   type TranscribeConnectionParams,
+  type TranscribeCallbackError,
 } from "@/transcribe/types";
 import { SocketService } from "@/socket/utils/socketService";
 import type { SocketConfig } from "@/socket/types";
@@ -82,16 +83,7 @@ export class TranscribeService {
   // Callbacks
   listeners: {
     onSpeech: ((response: GcpSpeechResponse) => void)[];
-    onError: ((
-      error:
-        | SocketDisconnectedError
-        | SocketMessageParseError
-        | SocketSendError
-        | SocketBufferOverflowError
-        | SocketNotConnectedError
-        | SocketReconnectionFailedError
-        | TranscribeServerError
-    ) => void)[];
+    onError: ((error: TranscribeCallbackError) => void)[];
     onVAD: ((response: VadResponse) => void)[];
     onConnect: (() => void)[];
     onDisconnect: ((event: CloseEvent) => void)[];
@@ -188,10 +180,11 @@ export class TranscribeService {
    * - `MediaRecorderNotSupportedError` - MediaRecorder not supported
    *
    * @param params - Connection parameters including server URL, access token, and metadata
+   * @returns The generated transcription_id for this session
    * @throws {SocketError} Socket connection errors
    * @throws {RecorderError} Microphone or recording errors
    */
-  async startTranscribing(params: TranscribeConnectionParams): Promise<void> {
+  async startTranscribing(params: TranscribeConnectionParams): Promise<string> {
     document.dispatchEvent(new CustomEvent("onRecordingStart"));
 
     // Store connection params for potential reconnection
@@ -201,13 +194,15 @@ export class TranscribeService {
     const wsUrl = buildWebSocketUrl(params);
 
     // 1. Update socket URL and connect
-    await this.socketService.connect(wsUrl);
+    const transcriptionId = await this.socketService.connect(wsUrl);
 
     // 2. Start recording (both mic and file if enabled)
     if (this.enableRecording) await this.recorderService.startRecording();
 
     // 3. Start mic streaming
     await this.recorderService.startMicStream();
+
+    return transcriptionId;
   }
 
   /**

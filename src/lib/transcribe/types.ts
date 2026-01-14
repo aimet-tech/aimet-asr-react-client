@@ -8,6 +8,21 @@ import type {
 } from "@/socket/errors";
 import type { TranscribeServerError } from "@/transcribe/errors";
 
+/**
+ * Union type of all possible errors that can be reported via onError listener callback.
+ *
+ * These errors occur during async/event-driven operations and are NOT thrown.
+ * Use try-catch for thrown errors from direct method calls instead.
+ */
+export type TranscribeCallbackError =
+  | SocketDisconnectedError
+  | SocketMessageParseError
+  | SocketSendError
+  | SocketBufferOverflowError
+  | SocketNotConnectedError
+  | SocketReconnectionFailedError
+  | TranscribeServerError;
+
 // Base response type matching your Dart structure
 export interface TranscribeResponse {
   type: TranscribeResponseType;
@@ -121,16 +136,7 @@ export type TranscribeListener = keyof TranscribeListenerCallbackMap;
 // Type mapping for callback signatures
 export type TranscribeListenerCallbackMap = {
   onSpeech: (res: GcpSpeechResponse) => void;
-  onError: (
-    error:
-      | SocketDisconnectedError
-      | SocketMessageParseError
-      | SocketSendError
-      | SocketBufferOverflowError
-      | SocketNotConnectedError
-      | SocketReconnectionFailedError
-      | TranscribeServerError
-  ) => void;
+  onError: (error: TranscribeCallbackError) => void;
   onVAD: (res: VadResponse) => void;
   onConnect: () => void;
   onDisconnect: (event: CloseEvent) => void;

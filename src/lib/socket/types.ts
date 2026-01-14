@@ -5,7 +5,7 @@ export interface SocketConfig {
 
 // Socket service interface
 export interface ISocketService {
-  connect(url: URL): Promise<void>;
+  connect(url: URL): Promise<string>;
   disconnect(): void;
   sendAudioChunk(audioData: ArrayBuffer): void;
   setAllowSocketClose(allow: boolean): void;
