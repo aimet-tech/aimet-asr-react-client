@@ -140,6 +140,7 @@ export type TranscribeListenerCallbackMap = {
   onVAD: (res: VadResponse) => void;
   onConnect: () => void;
   onDisconnect: (event: CloseEvent) => void;
+  onReconnected: (newTranscriptionId: string) => void;
   onConnectionStatusChange: (res: TranscribeConnection) => void;
   onRecordingStart: () => void;
   onRecordingStop: (res: AudioFile) => void;

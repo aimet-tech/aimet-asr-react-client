@@ -8,7 +8,8 @@ export interface ISocketService {
   connect(url: URL): Promise<string>;
   disconnect(): void;
   sendAudioChunk(audioData: ArrayBuffer): void;
-  setAllowSocketClose(allow: boolean): void;
+  setAllowReconnect(allow: boolean): void;
+  setNeedsSocket(needs: boolean): void;
   isConnected(): boolean;
 }
 

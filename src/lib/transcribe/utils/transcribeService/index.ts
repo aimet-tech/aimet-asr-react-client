@@ -87,6 +87,7 @@ export class TranscribeService {
     onVAD: ((response: VadResponse) => void)[];
     onConnect: (() => void)[];
     onDisconnect: ((event: CloseEvent) => void)[];
+    onReconnected: ((newTranscriptionId: string) => void)[];
     onConnectionStatusChange: ((status: TranscribeConnection) => void)[];
     onRecordingStart: (() => void)[];
     onRecordingStop: ((audioFile: AudioFile) => void)[];
@@ -100,6 +101,7 @@ export class TranscribeService {
       onVAD: [],
       onConnect: [],
       onDisconnect: [],
+      onReconnected: [],
       onConnectionStatusChange: [],
       onRecordingStart: [],
       onRecordingStop: [],
@@ -122,6 +124,10 @@ export class TranscribeService {
       onDisconnect: (event: CloseEvent) => {
         // Notify all disconnect listeners with the close event
         executeCallbacks(this.listeners.onDisconnect, event);
+      },
+      onReconnected: (newTranscriptionId: string) => {
+        // Notify all reconnected listeners with the new transcription ID
+        executeCallbacks(this.listeners.onReconnected, newTranscriptionId);
       },
       onTranscription: (response) => this.handleTranscriptionResponse(response),
       onConnectionStatusChange: (status) => {
@@ -196,6 +202,9 @@ export class TranscribeService {
     // 1. Update socket URL and connect
     const transcriptionId = await this.socketService.connect(wsUrl);
 
+    // Set socket as needed for smart reconnection
+    this.socketService.setNeedsSocket(true);
+
     // 2. Start recording (both mic and file if enabled)
     if (this.enableRecording) await this.recorderService.startRecording();
 
@@ -267,8 +276,11 @@ export class TranscribeService {
     if (this.enableRecording)
       audioFile = await this.recorderService.stopRecording();
 
+    // Mark socket as no longer needed (user explicitly stopped)
+    this.socketService.setNeedsSocket(false);
+
     // Mark socket as intentionally idle to prevent auto-reconnection
-    this.socketService.setAllowSocketClose(true);
+    this.socketService.setAllowReconnect(false);
 
     // 4. Cleanup
     this.recorderService.closeMic();
@@ -298,7 +310,8 @@ export class TranscribeService {
     fallbackConnectionParams?: TranscribeConnectionParams
   ): Promise<void> {
     // Reset idle state to enable auto-reconnection if needed
-    this.socketService.setAllowSocketClose(false);
+    this.socketService.setAllowReconnect(true);
+    this.socketService.setNeedsSocket(true);
 
     // Check if socket is still connected, reconnect if needed
     if (!this.socketService.isConnected()) {

@@ -60,7 +60,8 @@ export class SocketService implements ISocketService {
   private maxBufferSize = 100; // Prevent memory issues
   private bufferOverflowReported = false; // Track if overflow error was already reported
   private connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
-  private allowSocketClose: boolean = false;
+  private allowReconnect: boolean = true; // Auto reconnect to socket after disconnected if true
+  private needsSocket: boolean = false; // Track if socket is still needed (true after start/resume transcribe, false after stop/disconnect transcribe)
   private url: URL | null = null;
 
   // Network detection
@@ -71,6 +72,7 @@ export class SocketService implements ISocketService {
   // Callbacks - now arrays to support multiple listeners
   private onConnect?: () => void;
   private onDisconnect?: (event: CloseEvent) => void;
+  private onReconnected?: (newTranscriptionId: string) => void;
   private onError?: (
     error:
       | SocketDisconnectedError
@@ -87,6 +89,7 @@ export class SocketService implements ISocketService {
     config,
     onConnect,
     onDisconnect,
+    onReconnected,
     onError,
     onTranscription,
     onConnectionStatusChange,
@@ -94,6 +97,7 @@ export class SocketService implements ISocketService {
     config: SocketConfig;
     onConnect?: () => void;
     onDisconnect?: (event: CloseEvent) => void;
+    onReconnected?: (newTranscriptionId: string) => void;
     onError?: (
       error:
         | SocketDisconnectedError
@@ -111,6 +115,7 @@ export class SocketService implements ISocketService {
     // Handle single callbacks or arrays of callbacks
     this.onConnect = onConnect;
     this.onDisconnect = onDisconnect;
+    this.onReconnected = onReconnected;
     this.onError = onError;
     this.onTranscription = onTranscription;
     this.onConnectionStatusChange = onConnectionStatusChange;
@@ -140,17 +145,12 @@ export class SocketService implements ISocketService {
       );
       this.isOnline = true;
 
-      // Re-enable reconnection
-      this.allowSocketClose = false;
-
-      // If we were connected before going offline, try to reconnect
-      if (
-        this.socket &&
-        this.socket.readyState !== WebSocket.OPEN &&
-        this.url
-      ) {
+      // Only reconnect if:
+      // 1. Socket is still needed (user hasn't stopped transcription)
+      // 2. We have a URL to reconnect to
+      if (this.needsSocket && this.url) {
         console.log(
-          "%c [SocketService] Triggering reconnection after network recovery",
+          "%c [SocketService] Triggering reconnection after network recovery (socket still needed)",
           "color: lightgreen"
         );
         this.reconnectManager.startReconnection();
@@ -161,16 +161,14 @@ export class SocketService implements ISocketService {
       console.log("%c [SocketService] Network went offline", "color: red");
       this.isOnline = false;
 
-      // Close the zombie socket - it's dead anyway
-      // Set allowSocketClose=true temporarily to prevent reconnection while offline
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        console.log(
-          "%c [SocketService] Closing zombie socket due to network offline",
-          "color: red"
-        );
-        this.allowSocketClose = true; // Prevent reconnection while offline
-        this.socket.close();
-      }
+      // Prevent reconnection attempts while offline
+      // Let the socket die naturally - it will trigger onclose
+      this.allowReconnect = false;
+
+      console.log(
+        "%c [SocketService] Disabled reconnection while offline, waiting for socket to close naturally",
+        "color: orange"
+      );
     };
 
     window.addEventListener("online", this.onlineListener);
@@ -210,8 +208,23 @@ export class SocketService implements ISocketService {
    * @throws {SocketNotInitializedError}
    */
   async connect(url: URL): Promise<string> {
+    // Don't connect if already connected
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      console.log(
+        "%c [SocketService] Already connected, skipping connection",
+        "color: yellow"
+      );
+      // Extract existing transcription_id from URL
+      const existingId = this.url?.searchParams.get("transcription_id");
+      if (existingId) {
+        return existingId;
+      }
+      // Fallback: generate new ID (shouldn't happen)
+      return generateTranscriptionId();
+    }
+
     try {
-      this.allowSocketClose = false;
+      this.allowReconnect = true;
 
       this.updateConnectionStatus(ConnectionStatus.CONNECTING);
 
@@ -259,7 +272,8 @@ export class SocketService implements ISocketService {
    * This is a synchronous cleanup operation and typically doesn't throw errors.
    */
   disconnect(): void {
-    this.allowSocketClose = true;
+    this.allowReconnect = false;
+    this.needsSocket = false;
     this.cleanupNetworkListeners();
 
     if (this.socket) {
@@ -330,15 +344,31 @@ export class SocketService implements ISocketService {
   }
 
   /**
-   * Set whether the socket can be closed intentionally.
+   * Set whether reconnection is allowed.
    *
-   * When set to true, the socket will not attempt to reconnect if it closes.
-   * When set to false, automatic reconnection will be enabled on unexpected disconnections.
+   * When set to true, the socket will attempt to reconnect on unexpected disconnections.
+   * When set to false, automatic reconnection will be disabled.
    *
-   * @param allow - Whether to allow socket close without reconnection
+   * @param allow - Whether to allow automatic reconnection
    */
-  setAllowSocketClose(allow: boolean): void {
-    this.allowSocketClose = allow;
+  setAllowReconnect(allow: boolean): void {
+    this.allowReconnect = allow;
+  }
+
+  /**
+   * Set whether the socket is still needed.
+   *
+   * Controls smart reconnection behavior. When true, the socket will attempt
+   * to reconnect when network comes back online. When false, reconnection
+   * will be skipped even if network is available.
+   *
+   * This should be set to true when starting transcription, and false when
+   * stopping transcription or disconnecting intentionally.
+   *
+   * @param needs - Whether the socket is still needed
+   */
+  setNeedsSocket(needs: boolean): void {
+    this.needsSocket = needs;
   }
 
   /**
@@ -412,7 +442,7 @@ export class SocketService implements ISocketService {
       // 2. Not currently reconnecting
       // 3. Reconnection hasn't already failed (reached max attempts)
       if (
-        !this.allowSocketClose &&
+        this.allowReconnect &&
         !this.reconnectManager.isReconnecting() &&
         this.reconnectManager.getAttemptCount() < this.config.reconnectAttempts
       ) {
@@ -500,9 +530,20 @@ export class SocketService implements ISocketService {
     }
 
     this.updateConnectionStatus(ConnectionStatus.RECONNECTING);
+
     // Pass the stored access token during reconnection
-    await this.connect(this.url);
-    console.log("%c [SocketService] Connected to URL", "color: orange");
+    // This will generate a new transcription_id
+    const newTranscriptionId = await this.connect(this.url);
+
+    console.log(
+      "%c [SocketService] Reconnected with new transcription_id:",
+      "color: lightgreen",
+      newTranscriptionId
+    );
+
+    // Notify listeners about the new transcription_id
+    this.onReconnected?.(newTranscriptionId);
+
     await this.flushAudioBuffer();
   }
 
