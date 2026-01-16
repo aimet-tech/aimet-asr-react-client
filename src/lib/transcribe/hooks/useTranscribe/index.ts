@@ -25,11 +25,17 @@ export const useTranscribe = (options: UseTranscribeOptions) => {
 
     setServiceInitialized(true);
 
-    console.log("%c [useTranscribe] Service initialized", "color: purple");
+    console.log(
+      "%c [useTranscribe] Service initialized",
+      "color: mediumpurple"
+    );
 
     return () => {
       if (serviceRef.current) {
-        console.log("%c [useTranscribe] Cleaning up service", "color: purple");
+        console.log(
+          "%c [useTranscribe] Cleaning up service",
+          "color: mediumpurple"
+        );
         serviceRef.current
           .stopTranscribing()
           .then((audioFile) => {

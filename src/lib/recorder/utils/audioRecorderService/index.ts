@@ -149,7 +149,10 @@ export class AudioRecorderService implements IRecorderService {
    * @throws {RecordingStartError}
    */
   async startRecording(): Promise<void> {
-    console.log("%c [AudioRecorderService] Starting record", "color: blue");
+    console.log(
+      "%c [AudioRecorderService] Starting record",
+      "color: cornflowerblue"
+    );
     try {
       await this.openMic();
       await this.initializeMediaRecorder();
@@ -192,7 +195,10 @@ export class AudioRecorderService implements IRecorderService {
       return null;
     }
 
-    console.log("%c [AudioRecorderService] Stopping record", "color: blue");
+    console.log(
+      "%c [AudioRecorderService] Stopping record",
+      "color: cornflowerblue"
+    );
 
     try {
       // Stop the MediaRecorder
@@ -384,7 +390,7 @@ export class AudioRecorderService implements IRecorderService {
     if (this.mediaStream) {
       console.log(
         "%c [AudioRecorderService] Closing microphone",
-        "color: blue"
+        "color: cornflowerblue"
       );
       this.mediaStream.getTracks().forEach((track) => track.stop());
       this.mediaStream = null;
@@ -485,7 +491,7 @@ export class AudioRecorderService implements IRecorderService {
     this.mediaRecorder.onstart = () => {
       console.log(
         "%c [AudioRecorderService] MediaRecorder started",
-        "color: blue"
+        "color: cornflowerblue"
       );
       this.recordingStartTime = Date.now();
       this.state.isRecording = true;
@@ -501,7 +507,7 @@ export class AudioRecorderService implements IRecorderService {
     this.mediaRecorder.onstop = () => {
       console.log(
         "%c [AudioRecorderService] MediaRecorder stopped",
-        "color: blue"
+        "color: cornflowerblue"
       );
       this.isMediaRecorderStopped = true;
     };
@@ -535,7 +541,6 @@ export class AudioRecorderService implements IRecorderService {
 
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16Data = convertFloat32ToPcm16(inputData);
-
         // Send audio data to callback
         this.onAudioData?.(pcm16Data);
       };
