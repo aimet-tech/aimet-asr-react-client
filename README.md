@@ -200,6 +200,67 @@ const useAudioVisualizer = () => {
 };
 ```
 
+## Local Development
+
+### Testing the Package Locally with `pnpm link`
+
+If you're developing this package and want to test it in another project locally:
+
+#### 1. In this package directory:
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build the package
+pnpm build
+
+# Create a global link
+pnpm link --global
+```
+
+#### 2. In your test project:
+
+```bash
+# Link the package to your project
+pnpm link --global @bream-is-a-fish/aimet-asr-react-client
+```
+
+#### 3. During development:
+
+Whenever you make changes to the package:
+
+```bash
+# Rebuild the package
+pnpm build
+```
+
+Your test project will automatically use the updated version.
+
+#### 4. Unlinking when done:
+
+In your test project:
+```bash
+# Unlink the package
+pnpm unlink --global @bream-is-a-fish/aimet-asr-react-client
+
+# Reinstall the published version
+pnpm install @bream-is-a-fish/aimet-asr-react-client
+```
+
+In this package directory (optional cleanup):
+```bash
+# Remove the global link
+pnpm unlink --global
+```
+
+### Development Tips
+
+- **Watch mode**: Use `pnpm build --watch` to automatically rebuild on file changes
+- **Type checking**: Run `pnpm run type-check` to verify TypeScript types
+- **Testing**: Make sure to test all error scenarios and edge cases
+- **React versions**: Ensure your test project uses compatible React versions (React 18+)
+
 ## API Reference
 
 ### Providers
