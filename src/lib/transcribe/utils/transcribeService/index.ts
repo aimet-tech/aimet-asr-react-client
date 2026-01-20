@@ -25,7 +25,6 @@ import type {
   SocketMessageParseError,
   SocketSendError,
   SocketBufferOverflowError,
-  SocketNotConnectedError,
   SocketReconnectionFailedError,
 } from "@/socket/errors";
 
@@ -140,7 +139,6 @@ export class TranscribeService {
           | SocketMessageParseError
           | SocketSendError
           | SocketBufferOverflowError
-          | SocketNotConnectedError
           | SocketReconnectionFailedError
       ) => {
         // Pass socket errors to listeners
@@ -386,8 +384,7 @@ export class TranscribeService {
    * - `SocketDisconnectedError` - WebSocket connection lost unexpectedly
    * - `SocketMessageParseError` - Failed to parse server message
    * - `SocketSendError` - Failed to send audio chunk
-   * - `SocketBufferOverflowError` - Audio buffer full, chunks dropped
-   * - `SocketNotConnectedError` - Attempted to send while disconnected
+   * - `SocketBufferOverflowError` - Audio queue full, chunks dropped
    * - `SocketReconnectionFailedError` - Reconnection attempts exhausted
    *
    * *Server Errors:*

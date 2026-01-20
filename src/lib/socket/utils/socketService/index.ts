@@ -16,29 +16,39 @@ import {
   SocketNoURLForReconnectionError,
   SocketReconnectionFailedError,
   SocketSendError,
-  SocketNotConnectedError,
   SocketBufferOverflowError,
 } from "@/socket/errors";
 
 /**
  * SocketService
  *
- * Core service for managing WebSocket connections with automatic reconnection.
- * Handles WebSocket lifecycle, message routing, audio chunk buffering, and connection recovery.
+ * Core service for managing WebSocket connections with automatic reconnection and FIFO-ordered audio streaming.
+ * Uses a queue-based architecture to guarantee correct ordering of audio chunks even during reconnections.
  *
  * **Features:**
- * - WebSocket connection management
- * - Automatic reconnection with exponential backoff
- * - Audio chunk buffering during disconnections
+ * - WebSocket connection management with automatic reconnection
+ * - Queue-based FIFO audio chunk ordering (prevents race conditions)
+ * - Automatic buffering during network disruptions
+ * - Smart reconnection based on user intent (needsSocket flag)
+ * - Network detection and automatic recovery
  * - Connection status tracking
  * - Message parsing and routing
- * - Error handling with custom error types
+ * - Comprehensive error handling with custom error types
+ *
+ * **Error Callbacks:**
+ * All errors reported via the `onError` callback:
+ * - `SocketDisconnectedError` - Connection lost unexpectedly
+ * - `SocketMessageParseError` - Invalid message format received
+ * - `SocketSendError` - Failed to send audio chunk
+ * - `SocketBufferOverflowError` - Queue full, chunks being dropped
+ * - `SocketReconnectionFailedError` - Max reconnection attempts reached
  *
  * @example
  * ```typescript
  * const socket = new SocketService({
  *   config: { reconnectAttempts: 3, reconnectDelay: 1000 },
  *   onConnect: () => console.log('Connected'),
+ *   onReconnected: (newId) => console.log('Reconnected:', newId),
  *   onError: (error) => {
  *     if (error instanceof SocketReconnectionFailedError) {
  *       console.log('Reconnection failed');
@@ -48,7 +58,7 @@ import {
  * });
  *
  * await socket.connect(new URL('ws://localhost:8000'));
- * socket.sendAudioChunk(audioData);
+ * socket.sendAudioChunk(audioData); // Always queued for FIFO ordering
  * socket.disconnect();
  * ```
  */
@@ -57,8 +67,9 @@ export class SocketService implements ISocketService {
   private config: SocketConfig;
   private reconnectManager: ReconnectManager;
   private audioBuffer: ArrayBuffer[] = [];
-  private maxBufferSize = 100; // Prevent memory issues
+  private maxBufferSize = 200; // Prevent memory issues
   private bufferOverflowReported = false; // Track if overflow error was already reported
+  private isProcessingQueue = false; // Track if queue is being processed
   private connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
   private allowReconnect: boolean = true; // Auto reconnect to socket after disconnected if true
   private needsSocket: boolean = false; // Track if socket is still needed (true after start/resume transcribe, false after stop/disconnect transcribe)
@@ -79,7 +90,6 @@ export class SocketService implements ISocketService {
       | SocketMessageParseError
       | SocketSendError
       | SocketBufferOverflowError
-      | SocketNotConnectedError
       | SocketReconnectionFailedError
   ) => void;
   private onTranscription?: (response: TranscribeResponse) => void;
@@ -104,7 +114,6 @@ export class SocketService implements ISocketService {
         | SocketMessageParseError
         | SocketSendError
         | SocketBufferOverflowError
-        | SocketNotConnectedError
         | SocketReconnectionFailedError
     ) => void;
     onTranscription?: (response: TranscribeResponse) => void;
@@ -154,6 +163,9 @@ export class SocketService implements ISocketService {
           "color: lightgreen"
         );
         this.reconnectManager.startReconnection();
+      } else if (this.socket?.readyState === WebSocket.OPEN) {
+        // If already connected, just resume queue processing
+        this.processQueue();
       }
     };
 
@@ -164,11 +176,6 @@ export class SocketService implements ISocketService {
       // Prevent reconnection attempts while offline
       // Let the socket die naturally - it will trigger onclose
       this.allowReconnect = false;
-
-      console.log(
-        "%c [SocketService] Disabled reconnection while offline, waiting for socket to close naturally",
-        "color: orange"
-      );
     };
 
     window.addEventListener("online", this.onlineListener);
@@ -210,17 +217,14 @@ export class SocketService implements ISocketService {
   async connect(url: URL): Promise<string> {
     // Don't connect if already connected
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      console.log(
-        "%c [SocketService] Already connected, skipping connection",
-        "color: yellow"
-      );
       // Extract existing transcription_id from URL
-      const existingId = this.url?.searchParams.get("transcription_id");
-      if (existingId) {
-        return existingId;
-      }
-      // Fallback: generate new ID (shouldn't happen)
-      return generateTranscriptionId();
+      const transcriptionId = this.url?.searchParams.get("transcription_id") ?? generateTranscriptionId();
+      console.log(
+        "%c [SocketService] Already connected, skipping connection with transcription_id: %s",
+        "color: orange",
+        transcriptionId
+      );
+      return transcriptionId;
     }
 
     try {
@@ -233,16 +237,8 @@ export class SocketService implements ISocketService {
       const transcriptionId = generateTranscriptionId();
       this.url.searchParams.set("transcription_id", transcriptionId);
 
-      console.log(
-        "%c [SocketService] Connecting to URL",
-        "color: orange",
-        this.url
-      );
-
       // Create WebSocket connection with the exact URL (all params already included)
       this.socket = new WebSocket(this.url);
-
-      console.log("%c [SocketService] WebSocket created", "color: orange");
 
       this.setupEventHandlers();
       await this.waitForConnection();
@@ -294,53 +290,25 @@ export class SocketService implements ISocketService {
   /**
    * Send an audio chunk through the WebSocket.
    *
-   * Sends raw audio data to the server. If the socket is not connected but reconnecting,
-   * the data will be buffered and sent once reconnection succeeds. If the buffer is full,
-   * new chunks will be dropped and an error will be reported once.
+   * All audio data is queued and processed in order to guarantee FIFO ordering.
+   * The queue automatically processes chunks when the socket is ready. If the socket
+   * is not ready (disconnected, offline, reconnecting), chunks are queued and will
+   * be sent once the connection is restored.
    *
    * **Error Handling (via callback):**
-   * - `SocketSendError` - Failed to send audio chunk
-   * - `SocketBufferOverflowError` - Buffer is full, new chunks dropped (reported once)
-   * - `SocketNotConnectedError` - Socket is not connected and not reconnecting
+   * - `SocketBufferOverflowError` - Queue is full, new chunks dropped (reported once)
+   * - `SocketSendError` - Failed to send a chunk from the queue
    *
-   * Note: This method doesn't throw errors. Errors are reported via the onError callback.
+   * Note: This method doesn't throw errors. All errors are reported via the onError callback.
    *
    * @param audioData - Raw audio data as ArrayBuffer
    */
   sendAudioChunk(audioData: ArrayBuffer): void {
-    // Priority 1: Check network status FIRST (browser-level detection)
-    // Buffer immediately if offline, regardless of socket state
-    if (!this.isOnline) {
-      this.bufferAudioChunk(audioData, "network offline");
-      return;
-    }
-
-    // Priority 2: Socket is open - send immediately
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      try {
-        // Send raw audio data as Uint8Array
-        this.socket.send(audioData);
-      } catch (error) {
-        // Event-based: call error callback
-        this.onError?.(
-          new SocketSendError(
-            error instanceof Error
-              ? error.message
-              : "Failed to send audio chunk"
-          )
-        );
-      }
-    } else if (this.reconnectManager.isReconnecting()) {
-      // Priority 3: Reconnecting - buffer the data
-      this.bufferAudioChunk(audioData, "socket not connected");
-    } else {
-      // Priority 4: Not connected and not reconnecting - notify via callback
-      this.onError?.(
-        new SocketNotConnectedError(
-          "Cannot send audio chunk, socket not connected"
-        )
-      );
-    }
+    // Always enqueue - this guarantees FIFO ordering
+    this.enqueueAudioChunk(audioData);
+    
+    // Start processing queue if not already processing
+    this.processQueue();
   }
 
   /**
@@ -372,16 +340,15 @@ export class SocketService implements ISocketService {
   }
 
   /**
-   * Buffer audio data with overflow protection.
+   * Enqueue audio data with overflow protection.
    *
-   * Adds audio data to the buffer if space is available. If the buffer is full,
+   * Adds audio data to the queue if space is available. If the queue is full,
    * drops the new chunk and reports overflow error (only once).
    *
-   * @param audioData - Raw audio data to buffer
-   * @param reason - Reason for buffering (for logging)
+   * @param audioData - Raw audio data to enqueue
    */
-  private bufferAudioChunk(audioData: ArrayBuffer, reason: string): void {
-    // Check if buffer is already full
+  private enqueueAudioChunk(audioData: ArrayBuffer): void {
+    // Check if queue is already full
     if (this.audioBuffer.length >= this.maxBufferSize) {
       if (!this.bufferOverflowReported) {
         this.bufferOverflowReported = true;
@@ -391,16 +358,80 @@ export class SocketService implements ISocketService {
           )
         );
       }
-      // Drop the new chunk, don't add to buffer
+      // Drop the new chunk, don't add to queue
       return;
     }
 
-    // Buffer the chunk
+    // Enqueue the chunk
     this.audioBuffer.push(audioData);
-    console.log(
-      `%c [SocketService] Audio chunk buffered (${reason})`,
-      "color: orange"
-    );
+  }
+
+  /**
+   * Process the audio queue.
+   *
+   * Sends queued audio chunks to the server when the socket is ready.
+   * Only one processing loop runs at a time. Processing stops when:
+   * - The queue is empty
+   * - Network is offline
+   * - Socket is not open
+   *
+   * Processing automatically resumes when conditions improve.
+   */
+  private async processQueue(): Promise<void> {
+    // Prevent concurrent processing
+    if (this.isProcessingQueue) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+
+    try {
+      while (this.audioBuffer.length > 0) {
+        // Stop processing if conditions are not met
+        if (
+          !this.isOnline ||
+          !this.socket ||
+          this.socket.readyState !== WebSocket.OPEN
+        ) {
+          console.log(
+            `%c [SocketService] Queue processing paused (chunks queued)`,
+            "color: orange"
+          );
+          break;
+        }
+
+        // Get next chunk from queue
+        const chunk = this.audioBuffer.shift();
+        if (!chunk) break;
+
+        // Send the chunk
+        await this.sendChunkToSocket(chunk);
+      }
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+
+  /**
+   * Send a single audio chunk to the WebSocket.
+   *
+   * Handles the actual socket.send() call with error handling and rate limiting.
+   *
+   * @param chunk - Audio chunk to send
+   */
+  private async sendChunkToSocket(chunk: ArrayBuffer): Promise<void> {
+    try {
+      this.socket!.send(chunk);
+      // Small delay to prevent overwhelming the server
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    } catch (error) {
+      // If send fails, notify via callback
+      this.onError?.(
+        new SocketSendError(
+          error instanceof Error ? error.message : "Failed to send audio chunk"
+        )
+      );
+    }
   }
 
   /**
@@ -419,13 +450,17 @@ export class SocketService implements ISocketService {
 
     this.socket.onopen = () => {
       console.log(
-        "%c [SocketService] WebSocket connected successfully",
-        "color: orange"
+        "%c [SocketService] WebSocket connected successfully with transcription_id: %s",
+        "color: orange",
+        this.url?.searchParams.get("transcription_id")
       );
       this.reconnectManager.resetAttemptCount();
       this.updateConnectionStatus(ConnectionStatus.CONNECTED);
       this.onConnect?.();
       this.bufferOverflowReported = false; // Reset overflow flag on successful connection
+      
+      // Start processing queued chunks
+      this.processQueue();
     };
 
     this.socket.onclose = (event) => {
@@ -544,7 +579,7 @@ export class SocketService implements ISocketService {
     // Notify listeners about the new transcription_id
     this.onReconnected?.(newTranscriptionId);
 
-    await this.flushAudioBuffer();
+    // Queue will be automatically processed by socket.onopen
   }
 
   private handleReconnectFailed(): void {
@@ -555,29 +590,6 @@ export class SocketService implements ISocketService {
     this.onError?.(error);
   }
 
-  private async flushAudioBuffer(): Promise<void> {
-    while (this.audioBuffer.length > 0) {
-      const chunk = this.audioBuffer.shift();
-      if (chunk && this.socket?.readyState === WebSocket.OPEN) {
-        try {
-          // Send raw audio data as Uint8Array
-          this.socket.send(chunk);
-          // Small delay to prevent overwhelming the server
-          await new Promise((resolve) => setTimeout(resolve, 10));
-        } catch (error) {
-          // If send fails, notify via callback and stop flushing
-          this.onError?.(
-            new SocketSendError(
-              error instanceof Error
-                ? `Failed to flush buffered audio: ${error.message}`
-                : "Failed to flush buffered audio"
-            )
-          );
-          break; // Stop flushing on error
-        }
-      }
-    }
-  }
 
   private updateConnectionStatus(status: ConnectionStatus): void {
     this.connectionStatus = status;

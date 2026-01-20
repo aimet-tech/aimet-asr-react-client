@@ -36,8 +36,7 @@ export interface TranscribeActions {
    * - `SocketDisconnectedError` - WebSocket connection lost unexpectedly
    * - `SocketMessageParseError` - Failed to parse server message
    * - `SocketSendError` - Failed to send audio chunk
-   * - `SocketBufferOverflowError` - Audio buffer full, chunks dropped
-   * - `SocketNotConnectedError` - Attempted to send while disconnected
+   * - `SocketBufferOverflowError` - Audio queue full, chunks dropped
    * - `SocketReconnectionFailedError` - Reconnection attempts exhausted
    *
    * *Server Errors:*

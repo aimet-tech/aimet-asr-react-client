@@ -3,7 +3,6 @@ import type {
   SocketMessageParseError,
   SocketSendError,
   SocketBufferOverflowError,
-  SocketNotConnectedError,
   SocketReconnectionFailedError,
 } from "@/socket/errors";
 import type { TranscribeServerError } from "@/transcribe/errors";
@@ -19,7 +18,6 @@ export type TranscribeCallbackError =
   | SocketMessageParseError
   | SocketSendError
   | SocketBufferOverflowError
-  | SocketNotConnectedError
   | SocketReconnectionFailedError
   | TranscribeServerError;
 

@@ -83,12 +83,6 @@ export class SocketSendError extends SocketError {
   }
 }
 
-export class SocketNotConnectedError extends SocketError {
-  constructor(message = "WebSocket is not connected") {
-    super(message, "SOCKET_NOT_CONNECTED");
-  }
-}
-
 // Buffer errors
 export class SocketBufferOverflowError extends SocketError {
   constructor(message = "Audio buffer overflow, oldest chunks dropped") {

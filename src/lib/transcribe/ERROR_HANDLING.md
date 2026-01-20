@@ -137,7 +137,6 @@ type OnErrorCallback = (
     | SocketMessageParseError
     | SocketSendError
     | SocketBufferOverflowError
-    | SocketNotConnectedError
     | SocketReconnectionFailedError
     | TranscribeServerError
 ) => void;
@@ -167,9 +166,8 @@ These socket errors are reported via the `onError` listener (not thrown):
 
 - `SocketDisconnectedError` - WebSocket connection lost unexpectedly (from `socket.onerror`)
 - `SocketMessageParseError` - Failed to parse incoming message (from `socket.onmessage`)
-- `SocketSendError` - Failed to send audio chunk
-- `SocketBufferOverflowError` - Audio buffer full, oldest chunks dropped
-- `SocketNotConnectedError` - Attempted to send audio while disconnected
+- `SocketSendError` - Failed to send audio chunk (e.g., socket closed during send)
+- `SocketBufferOverflowError` - Audio queue full, new chunks dropped (max 150 chunks)
 - `SocketReconnectionFailedError` - Maximum reconnection attempts reached
 
 ## Related Error Classes
@@ -202,9 +200,8 @@ Socket-related errors that are **thrown** during method calls:
 Socket-related errors that are **reported via callback**:
 - `SocketDisconnectedError` - Socket disconnected unexpectedly
 - `SocketMessageParseError` - Failed to parse incoming message
-- `SocketSendError` - Failed to send data
-- `SocketNotConnectedError` - Attempted to send while disconnected
-- `SocketBufferOverflowError` - Audio buffer overflow
+- `SocketSendError` - Failed to send data from the queue
+- `SocketBufferOverflowError` - Audio queue overflow (max 150 chunks)
 - `SocketReconnectionFailedError` - Reconnection attempts exhausted
 
 ## Best Practices
@@ -223,12 +220,13 @@ The TranscribeService supports the following listener types:
 
 - `onSpeech` - Speech transcription results
 - `onError` - Event-driven errors only:
-  - Socket: `SocketDisconnectedError`, `SocketMessageParseError`, `SocketSendError`, `SocketBufferOverflowError`, `SocketNotConnectedError`, `SocketReconnectionFailedError`
+  - Socket: `SocketDisconnectedError`, `SocketMessageParseError`, `SocketSendError`, `SocketBufferOverflowError`, `SocketReconnectionFailedError`
   - Server: `TranscribeServerError`
   - **Note:** RecorderError is thrown, not sent via callback
 - `onVAD` - Voice Activity Detection events
 - `onConnect` - WebSocket connection established
 - `onDisconnect` - WebSocket connection closed (includes CloseEvent details)
+- `onReconnected` - WebSocket reconnected with new transcription_id
 - `onConnectionStatusChange` - Connection status changes (connecting, connected, reconnecting, etc.)
 - `onRecordingStart` - Recording started
 - `onRecordingStop` - Recording stopped (includes AudioFile)
