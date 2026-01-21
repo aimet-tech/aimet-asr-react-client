@@ -168,11 +168,16 @@ export interface TranscribeActions {
   stopTranscribing: () => Promise<AudioFile | null>;
 
   /**
-   * Stop transcribing but keep the WebSocket connection open.
+   * Stop transcription but keep socket open for quick resume.
    *
-   * Stops the microphone stream and recording (if enabled) while maintaining the WebSocket
-   * connection. This is useful for pausing transcription without reconnecting. The socket
-   * will not attempt automatic reconnection while in this state.
+   * Stops recording audio but maintains the WebSocket connection. This is useful
+   * when you need to temporarily pause transcription but want to resume quickly
+   * without the overhead of reconnecting. Recording can be resumed using resumeTranscribe().
+   *
+   * **Optional Buffer Flush:**
+   * By default, sends silent audio to flush the server's transcription buffer,
+   * preventing stale transcriptions from appearing after resume. Set `shouldFlushOldData`
+   * to false to skip this behavior (faster but may receive old results on resume).
    *
    * **Possible Errors (thrown):**
    * - `TranscribeServiceNotInitializedError` - Service not initialized (missing TranscribeProvider)
@@ -181,22 +186,26 @@ export interface TranscribeActions {
    * - `NoRecordingChunksError` - No audio data was recorded
    * - `MediaRecorderTimeoutError` - MediaRecorder stop operation timed out
    *
-   * @returns The recorded audio file if recording was enabled, null otherwise
+   * @param shouldFlushOldData - Whether to send silent audio to flush server buffer (default: true)
+   * @returns The recorded audio file, or null if recording is disabled
    * @throws {TranscribeServiceNotInitializedError} Service not initialized
-   * @throws {RecorderError} Microphone or recording errors during pause
+   * @throws {RecorderError} Recording or microphone stop errors
    *
    * @example
    * ```typescript
-   * // Pause transcription
+   * // Stop with buffer flush (recommended)
    * const audioFile = await stopTranscribeKeepSocket();
    *
-   * // ... do something else ...
+   * // Stop without buffer flush (faster, may receive stale results)
+   * const audioFile = await stopTranscribeKeepSocket(false);
    *
-   * // Resume later without reconnecting
+   * // Later resume...
    * await resumeTranscribe();
    * ```
    */
-  stopTranscribeKeepSocket: () => Promise<AudioFile | null>;
+  stopTranscribeKeepSocket: (
+    shouldFlushOldData?: boolean
+  ) => Promise<AudioFile | null>;
 
   /**
    * Resume transcribing with the existing or new connection.

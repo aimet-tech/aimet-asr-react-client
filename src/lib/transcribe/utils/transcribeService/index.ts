@@ -27,6 +27,7 @@ import type {
   SocketBufferOverflowError,
   SocketReconnectionFailedError,
 } from "@/socket/errors";
+import { TranscribeSessionState } from "@/transcribe/models/enums/TranscribeSessionState";
 
 /**
  * TranscribeService
@@ -78,6 +79,8 @@ export class TranscribeService {
   private recorderService: AudioRecorderService;
   private enableRecording: boolean = false;
   private currentConnectionParams: TranscribeConnectionParams | null = null;
+  private sessionState: TranscribeSessionState = TranscribeSessionState.PAUSED;
+  private audioConfig: AudioConfig;
 
   // Callbacks
   listeners: {
@@ -94,6 +97,8 @@ export class TranscribeService {
     onPermissionDenied: (() => void)[];
   };
   constructor(config: TranscribeConfig, audioConfig: AudioConfig) {
+    this.audioConfig = audioConfig;
+    
     this.listeners = {
       onSpeech: [],
       onError: [],
@@ -203,6 +208,9 @@ export class TranscribeService {
     // Set socket as needed for smart reconnection
     this.socketService.setNeedsSocket(true);
 
+    // Mark as active transcription session
+    this.sessionState = TranscribeSessionState.ACTIVE;
+
     // 2. Start recording (both mic and file if enabled)
     if (this.enableRecording) await this.recorderService.startRecording();
 
@@ -250,11 +258,16 @@ export class TranscribeService {
   }
 
   /**
-   * Stop transcribing but keep the WebSocket connection open.
+   * Stop transcription but keep socket open for quick resume.
    *
-   * Stops the microphone stream and recording (if enabled) while maintaining the WebSocket
-   * connection. This is useful for pausing transcription without reconnecting. The socket
-   * will not attempt automatic reconnection while in this state.
+   * Stops recording audio but maintains the WebSocket connection. This is useful
+   * when you need to temporarily pause transcription but want to resume quickly
+   * without the overhead of reconnecting. Recording can be resumed using resumeTranscribe().
+   *
+   * **Optional Buffer Flush:**
+   * By default, sends silent audio to flush the server's transcription buffer,
+   * preventing stale transcriptions from appearing after resume. Set `shouldFlushOldData`
+   * to false to skip this behavior.
    *
    * **Possible Errors (thrown):**
    * - `MicStreamStopError` - Failed to stop microphone stream
@@ -262,10 +275,25 @@ export class TranscribeService {
    * - `NoRecordingChunksError` - No audio data was recorded
    * - `MediaRecorderTimeoutError` - MediaRecorder stop operation timed out
    *
-   * @returns The recorded audio file if recording was enabled, null otherwise
-   * @throws {RecorderError} Microphone or recording errors during pause
+   * @param shouldFlushOldData - Whether to send silent audio to flush server buffer (default: true)
+   * @returns The recorded audio file, or null if recording is disabled
+   * @throws {RecorderError} Recording or microphone stop errors
+   *
+   * @example
+   * ```typescript
+   * // Stop with buffer flush (recommended)
+   * const audioFile = await stopTranscribeKeepSocket();
+   *
+   * // Stop without buffer flush (faster, but may receive stale results on resume)
+   * const audioFile = await stopTranscribeKeepSocket(false);
+   *
+   * // Later resume...
+   * await resumeTranscribe();
+   * ```
    */
-  async stopTranscribeKeepSocket(): Promise<AudioFile | null> {
+  async stopTranscribeKeepSocket(
+    shouldFlushOldData: boolean = true
+  ): Promise<AudioFile | null> {
     // Stop mic streaming but keep recording if active
     await this.recorderService.stopMicStream();
 
@@ -280,6 +308,16 @@ export class TranscribeService {
     // Mark socket as intentionally idle to prevent auto-reconnection
     this.socketService.setAllowReconnect(false);
 
+    // Flush server's buffer with silent audio if requested
+    if (shouldFlushOldData) {
+      this.sessionState = TranscribeSessionState.FLUSHING;
+
+      // Flush in background (non-blocking)
+      this.flushTranscriptionBufferInBackground();
+    } else {
+      this.sessionState = TranscribeSessionState.PAUSED;
+    }
+
     // 4. Cleanup
     this.recorderService.closeMic();
 
@@ -292,6 +330,9 @@ export class TranscribeService {
    * Resumes transcription after calling stopTranscribeKeepSocket(). If the socket is still
    * connected, it reuses the connection. If disconnected, it establishes a new connection
    * using stored or provided connection parameters.
+   *
+   * **Important:** If buffer flush is still in progress (from stopTranscribeKeepSocket with flush),
+   * this method will wait for the flush to complete before resuming to ensure clean state transition.
    *
    * **Possible Errors (thrown):**
    * - `SocketConnectionError` - Failed to reconnect if socket was disconnected
@@ -307,6 +348,41 @@ export class TranscribeService {
   async resumeTranscribe(
     fallbackConnectionParams?: TranscribeConnectionParams
   ): Promise<void> {
+    // Wait for flush to complete if still in progress
+    if (this.sessionState === TranscribeSessionState.FLUSHING) {
+      console.log(
+        "[TranscribeService] Waiting for buffer flush to complete before resuming..."
+      );
+
+      // Wait using setInterval with countdown (max 3 seconds)
+      await new Promise<void>((resolve) => {
+        const maxWaitTime = 3000;
+        const pollInterval = 100;
+        let elapsed = 0;
+
+        const intervalId = setInterval(() => {
+          elapsed += pollInterval;
+
+          // Check if flush completed or timeout reached
+          if (
+            this.sessionState !== TranscribeSessionState.FLUSHING ||
+            elapsed >= maxWaitTime
+          ) {
+            clearInterval(intervalId);
+            resolve();
+          }
+        }, pollInterval);
+      });
+
+      if (this.sessionState === TranscribeSessionState.FLUSHING) {
+        console.error("[TranscribeService] Flush timeout - proceeding anyway");
+        // Force state to PAUSED if flush is stuck
+        this.sessionState = TranscribeSessionState.PAUSED;
+      } else {
+        console.log("[TranscribeService] Flush completed, resuming...");
+      }
+    }
+
     // Reset idle state to enable auto-reconnection if needed
     this.socketService.setAllowReconnect(true);
     this.socketService.setNeedsSocket(true);
@@ -319,6 +395,9 @@ export class TranscribeService {
       }
       return;
     }
+
+    // Mark as active transcription session
+    this.sessionState = TranscribeSessionState.ACTIVE;
 
     // Start new recording session
     if (this.enableRecording) await this.recorderService.startRecording();
@@ -452,6 +531,17 @@ export class TranscribeService {
 
   // Private methods
   private handleTranscriptionResponse(response: TranscribeResponse): void {
+    // Ignore transcription results while flushing buffer
+    if (
+      this.sessionState === TranscribeSessionState.FLUSHING &&
+      response.type === TranscribeResponseType.SPEECH
+    ) {
+      console.log(
+        "[TranscribeService] Ignoring stale transcription during buffer flush"
+      );
+      return;
+    }
+
     switch (response.type) {
       case TranscribeResponseType.SPEECH:
         executeCallbacks(
@@ -473,6 +563,64 @@ export class TranscribeService {
         break;
       default:
         console.warn("[TranscribeService] Unknown response type:", response);
+    }
+  }
+
+  /**
+   * Inject virtual silence into the WebSocket stream.
+   *
+   * Sends a short period of silent audio in small chunks to signal end-of-utterance
+   * to the transcription service and flush its buffer. This approach mimics natural
+   * audio streaming behavior by sending chunks periodically rather than all at once.
+   *
+   * Based on working implementation that streams 100ms silence chunks over 2 seconds.
+   */
+  private async flushTranscriptionBufferInBackground(): Promise<void> {
+    try {
+      const durationMs = 2000; // 2 seconds of silence
+      const sampleRate = this.audioConfig.sampleRate; // e.g., 16000 Hz
+      const bytesPerSample = 2; // 16-bit PCM
+      const channels = this.audioConfig.channels; // 1 = mono, 2 = stereo
+      const chunkMs = 100; // stream in 100ms chunks
+
+      const totalChunks = Math.ceil(durationMs / chunkMs);
+      const samplesPerChunk = Math.floor((sampleRate * chunkMs) / 1000);
+      const bytesPerChunk = samplesPerChunk * bytesPerSample * channels;
+
+      // Create a single reusable silence chunk (all zeros in PCM16 format)
+      const silenceChunk = new ArrayBuffer(bytesPerChunk);
+
+      console.log(
+        `[TranscribeService] Injecting virtual silence: ${totalChunks} chunks of ${bytesPerChunk} bytes each`
+      );
+
+      // Send silence chunks with small delays to mimic natural streaming
+      for (let i = 0; i < totalChunks; i++) {
+        try {
+          this.socketService.sendAudioChunk(silenceChunk);
+          
+          // Wait chunkMs between chunks (except for the last one)
+          if (i < totalChunks - 1) {
+            await new Promise((resolve) => setTimeout(resolve, chunkMs));
+          }
+        } catch (error) {
+          console.error(
+            `[TranscribeService] Error sending virtual silence chunk ${i + 1}/${totalChunks}:`,
+            error
+          );
+          break;
+        }
+      }
+
+      // Wait a bit more for final processing
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      this.sessionState = TranscribeSessionState.PAUSED;
+      console.log("[TranscribeService] Virtual silence injection completed");
+    } catch (error) {
+      console.error("[TranscribeService] Buffer flush failed:", error);
+      // Even if flush fails, mark as paused so service can resume
+      this.sessionState = TranscribeSessionState.PAUSED;
     }
   }
 }

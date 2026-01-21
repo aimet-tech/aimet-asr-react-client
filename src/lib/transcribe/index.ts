@@ -13,6 +13,9 @@ export * from "./types";
 // errors
 export * from "./errors";
 
+// models
+export * from "./models/enums";
+
 // keys
 export * from "./keys";
 
