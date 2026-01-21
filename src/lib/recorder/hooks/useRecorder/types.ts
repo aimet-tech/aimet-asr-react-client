@@ -1,5 +1,9 @@
 import type { AudioFile } from "@/transcribe/types";
 import type { AudioRecorderService } from "@/recorder/utils/audioRecorderService";
+import type {
+  RecorderListener,
+  RecorderListenerCallbackMap,
+} from "@/recorder/types";
 
 export interface UseRecorderReturn {
   // State
@@ -18,4 +22,14 @@ export interface UseRecorderReturn {
 
   // Utility
   reset: () => void;
+
+  // Listener Management
+  addRecorderListener: <T extends RecorderListener>(
+    type: T,
+    callback: RecorderListenerCallbackMap[T]
+  ) => void;
+  removeRecorderListener: <T extends RecorderListener>(
+    type: T,
+    callback: RecorderListenerCallbackMap[T]
+  ) => void;
 }

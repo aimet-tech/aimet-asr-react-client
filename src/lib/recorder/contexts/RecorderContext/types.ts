@@ -1,5 +1,9 @@
 import type { AudioRecorderService } from "@/recorder/utils/audioRecorderService";
 import type { AudioFile } from "@/transcribe/types";
+import type {
+  RecorderListener,
+  RecorderListenerCallbackMap,
+} from "@/recorder/types";
 
 export interface RecorderContextValue {
   // State for React to track changes
@@ -93,4 +97,32 @@ export interface RecorderContextValue {
    * Does not close the microphone or clear permissions.
    */
   reset: () => void;
+
+  /**
+   * Add a listener for recorder events.
+   *
+   * **Available Listener Types:**
+   * - `onMicStatusChange` - Microphone status changed (active/inactive)
+   * - `onRecordingStart` - Recording started
+   * - `onRecordingStop` - Recording stopped (includes AudioFile)
+   * - `onPermissionGranted` - Microphone permission granted
+   *
+   * @param type - The event type to listen for
+   * @param callback - The callback function to invoke when the event occurs
+   */
+  addRecorderListener: <T extends RecorderListener>(
+    type: T,
+    callback: RecorderListenerCallbackMap[T]
+  ) => void;
+
+  /**
+   * Remove a previously added listener.
+   *
+   * @param type - The event type to remove the listener from
+   * @param callback - The callback function to remove
+   */
+  removeRecorderListener: <T extends RecorderListener>(
+    type: T,
+    callback: RecorderListenerCallbackMap[T]
+  ) => void;
 }

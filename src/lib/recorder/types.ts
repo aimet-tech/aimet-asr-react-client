@@ -13,6 +13,16 @@ export interface RecorderState {
   currentAudioFile: AudioFile | null;
 }
 
+// Recorder listener callback map
+export type RecorderListener = keyof RecorderListenerCallbackMap;
+
+export type RecorderListenerCallbackMap = {
+  onMicStatusChange: (isMicActive: boolean) => void;
+  onRecordingStart: () => void;
+  onRecordingStop: (audioFile: AudioFile) => void;
+  onPermissionGranted: () => void;
+};
+
 // Recorder service interface
 export interface RecorderService {
   startRecording(): Promise<void>;

@@ -64,6 +64,7 @@ export class AudioRecorderService implements IRecorderService {
   private onRecordingStart?: () => void;
   private onRecordingStop?: (audioFile: AudioFile) => void;
   private onPermissionGranted?: () => void;
+  private onMicStatusChange?: (isMicActive: boolean) => void;
 
   private state: RecorderState = {
     isRecording: false,
@@ -83,6 +84,7 @@ export class AudioRecorderService implements IRecorderService {
     onRecordingStart,
     onRecordingStop,
     onPermissionGranted,
+    onMicStatusChange,
   }: {
     audioConfig?: AudioConfig;
     recordingConfig?: RecordingConfig;
@@ -90,6 +92,7 @@ export class AudioRecorderService implements IRecorderService {
     onRecordingStart?: () => void;
     onRecordingStop?: (audioFile: AudioFile) => void;
     onPermissionGranted?: () => void;
+    onMicStatusChange?: (isMicActive: boolean) => void;
   }) {
     this.config = {
       sampleRate: 16000,
@@ -107,6 +110,7 @@ export class AudioRecorderService implements IRecorderService {
     this.onRecordingStart = onRecordingStart;
     this.onRecordingStop = onRecordingStop;
     this.onPermissionGranted = onPermissionGranted;
+    this.onMicStatusChange = onMicStatusChange;
   }
 
   /**
@@ -359,6 +363,7 @@ export class AudioRecorderService implements IRecorderService {
         },
       });
       this.state.isMicActive = true;
+      this.onMicStatusChange?.(true);
       this.mediaStream = stream;
       this.state.hasPermission = true;
       this.onPermissionGranted?.();
@@ -387,6 +392,7 @@ export class AudioRecorderService implements IRecorderService {
    */
   closeMic(): void {
     this.state.isMicActive = false;
+    this.onMicStatusChange?.(false);
     if (this.mediaStream) {
       console.log(
         "%c [AudioRecorderService] Closing microphone",

@@ -91,6 +91,7 @@ export class TranscribeService {
     onDisconnect: ((event: CloseEvent) => void)[];
     onReconnected: ((newTranscriptionId: string) => void)[];
     onConnectionStatusChange: ((status: TranscribeConnection) => void)[];
+    onMicStatusChange: ((isMicActive: boolean) => void)[];
     onRecordingStart: (() => void)[];
     onRecordingStop: ((audioFile: AudioFile) => void)[];
     onPermissionGranted: (() => void)[];
@@ -107,6 +108,7 @@ export class TranscribeService {
       onDisconnect: [],
       onReconnected: [],
       onConnectionStatusChange: [],
+      onMicStatusChange: [],
       onRecordingStart: [],
       onRecordingStop: [],
       onPermissionGranted: [],
@@ -163,6 +165,8 @@ export class TranscribeService {
       audioConfig,
       recordingConfig,
       onAudioData: (audioData) => this.socketService.sendAudioChunk(audioData),
+      onMicStatusChange: (isMicActive) =>
+        executeCallbacks(this.listeners.onMicStatusChange, isMicActive),
       onRecordingStart: () => executeCallbacks(this.listeners.onRecordingStart),
       onRecordingStop: (audioFile) =>
         executeCallbacks(this.listeners.onRecordingStop, audioFile),
@@ -450,7 +454,9 @@ export class TranscribeService {
    * - `onVAD` - Voice Activity Detection warnings
    * - `onConnect` - WebSocket connection established
    * - `onDisconnect` - WebSocket connection closed
+   * - `onReconnected` - WebSocket reconnected with new transcription_id
    * - `onConnectionStatusChange` - Connection status updates
+   * - `onMicStatusChange` - Microphone status changed (active/inactive)
    * - `onRecordingStart` - Recording started
    * - `onRecordingStop` - Recording stopped (includes AudioFile)
    * - `onPermissionGranted` - Microphone permission granted
@@ -496,6 +502,11 @@ export class TranscribeService {
    * // Listen for connection events
    * service.addTranscribeListener('onConnect', () => {
    *   console.log('Connected to transcription server');
+   * });
+   *
+   * // Listen for microphone status changes
+   * service.addTranscribeListener('onMicStatusChange', (isMicActive) => {
+   *   console.log('Microphone is now:', isMicActive ? 'active' : 'inactive');
    * });
    * ```
    */

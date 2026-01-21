@@ -29,4 +29,10 @@ export const RecorderContext = createContext<RecorderContextValue>({
   reset: () => {
     throw new Error("RecorderContext must be used within a RecorderProvider");
   },
+  addRecorderListener: () => {
+    throw new Error("RecorderContext must be used within a RecorderProvider");
+  },
+  removeRecorderListener: () => {
+    throw new Error("RecorderContext must be used within a RecorderProvider");
+  },
 });

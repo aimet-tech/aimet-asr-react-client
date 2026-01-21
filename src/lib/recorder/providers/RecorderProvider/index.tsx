@@ -26,6 +26,10 @@ export const RecorderProvider: React.FC<RecorderProviderProps> = ({
     openMic: recorderHook.openMic,
     closeMic: recorderHook.closeMic,
     reset: recorderHook.reset,
+
+    // Listener management from hook
+    addRecorderListener: recorderHook.addRecorderListener,
+    removeRecorderListener: recorderHook.removeRecorderListener,
   };
 
   return (

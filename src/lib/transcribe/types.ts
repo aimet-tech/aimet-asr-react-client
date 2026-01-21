@@ -140,6 +140,7 @@ export type TranscribeListenerCallbackMap = {
   onDisconnect: (event: CloseEvent) => void;
   onReconnected: (newTranscriptionId: string) => void;
   onConnectionStatusChange: (res: TranscribeConnection) => void;
+  onMicStatusChange: (isMicActive: boolean) => void;
   onRecordingStart: () => void;
   onRecordingStop: (res: AudioFile) => void;
   onPermissionGranted: () => void;
